@@ -13,6 +13,11 @@ Find out on which ports this is running
 
 	docker-machine ip default
 
+SSH into container
+
+	docker ps
+	docker exec -it bad4eff090cb bash
+
 
 
 Summary

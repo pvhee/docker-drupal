@@ -2,6 +2,11 @@ FROM debian:jessie
 ENV DEBIAN_FRONTEND noninteractive
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh
 
+ENV SOLR_VERSION 5.3.1
+ENV SOLR solr-$SOLR_VERSION
+ENV SOLR_MEM_SIZE 512m
+ENV PARTIAL_SEARCH_ENABLED false
+
 # Install packages.
 RUN apt-get update
 RUN apt-get install -y \
@@ -41,28 +46,6 @@ RUN drupal init
 RUN sed -i 's/display_errors = Off/display_errors = On/' /etc/php5/apache2/php.ini
 RUN sed -i 's/display_errors = Off/display_errors = On/' /etc/php5/cli/php.ini
 
-# Setup Blackfire.
-# Get the sources and install the Debian packages.
-# We create our own start script. If the environment variables are set, we
-# simply start Blackfire in the foreground. If not, we create a dummy daemon
-# script that simply loops indefinitely. This is to trick Supervisor into
-# thinking the program is running and avoid unnecessary error messages.
-RUN wget -O - https://packagecloud.io/gpg.key | apt-key add -
-RUN echo "deb http://packages.blackfire.io/debian any main" > /etc/apt/sources.list.d/blackfire.list
-RUN apt-get update
-RUN apt-get install -y blackfire-agent blackfire-php
-RUN echo -e '#!/bin/bash\n\
-if [[ -z "$BLACKFIREIO_SERVER_ID" || -z "$BLACKFIREIO_SERVER_TOKEN" ]]; then\n\
-    while true; do\n\
-        sleep 1000\n\
-    done\n\
-else\n\
-    /usr/bin/blackfire-agent -server-id="$BLACKFIREIO_SERVER_ID" -server-token="$BLACKFIREIO_SERVER_TOKEN"\n\
-fi\n\
-' > /usr/local/bin/launch-blackfire
-RUN chmod +x /usr/local/bin/launch-blackfire
-RUN mkdir -p /var/run/blackfire
-
 # Setup Apache.
 # In order to run our Simpletest tests, we need to make Apache
 # listen on the same port as the one we forwarded. Because we use
@@ -72,6 +55,13 @@ RUN sed -i 's/DocumentRoot \/var\/www\/html/DocumentRoot \/var\/www/' /etc/apach
 RUN echo "Listen 8080" >> /etc/apache2/ports.conf
 RUN sed -i 's/VirtualHost \*:80/VirtualHost \*:\*/' /etc/apache2/sites-available/000-default.conf
 RUN a2enmod rewrite
+
+# Download Solr.
+RUN mkdir -p /opt && \
+  wget -nv --output-document=/opt/$SOLR.tgz http://www.mirrorservice.org/sites/ftp.apache.org/lucene/solr/$SOLR_VERSION/$SOLR.tgz && \
+  tar -C /opt --extract --file /opt/$SOLR.tgz && \
+  rm /opt/$SOLR.tgz && \
+  mv /opt/$SOLR /opt/solr
 
 # Setup PHPMyAdmin
 RUN echo -e "\n# Include PHPMyAdmin configuration\nInclude /etc/phpmyadmin/apache.conf\n" >> /etc/apache2/apache2.conf
@@ -101,7 +91,7 @@ RUN echo "xdebug.max_nesting_level = 300" >> /etc/php5/cli/conf.d/20-xdebug.ini
 # Install Drupal.
 RUN rm -rf /var/www
 RUN cd /var && \
-	drupal site:new www 8.1.0
+	drupal site:new www 8.1.1
 RUN mkdir -p /var/www/sites/default/files && \
 	chmod a+w /var/www/sites/default -R && \
 	mkdir /var/www/sites/all/modules/contrib -p && \
@@ -128,8 +118,21 @@ RUN /etc/init.d/mysql start && \
 RUN /etc/init.d/mysql start && \
 	cd /var/www && \
 	drush dl admin_toolbar && \
-	drupal module:install admin_toolbar --latest && \
+	drush dl rabbitmq && \
+	drush dl devel && \
+	drush dl composer_manager && \
+	drush dl search_api search_api_solr && \
+	drupal module:install admin_toolbar && \
+	drupal module:install rabbitmq rabbitmq_example && \
+	drupal module:install search_api search_api_solr && \
+	drupal module:install devel && \
+	drupal module:install composer_manager && \
 	drupal module:install simpletest
+
+# Setup libraries // this is better done via composer install but put here for testing
+RUN cd /var/www && \
+	php modules/composer_manager/scripts/init.php && \
+	composer drupal-update
 
 EXPOSE 80 3306 22
 CMD exec supervisord -n
