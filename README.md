@@ -1,12 +1,25 @@
 Drupal development with Docker
 ==============================
 
-[![](https://badge.imagelayers.io/wadmiraal/drupal.svg)](https://imagelayers.io/?images=wadmiraal/drupal:latest 'Get your own badge on imagelayers.io')
+Trialing
+--------
 
-Quick and easy to use Docker container for your *local Drupal development*. It contains a LAMP stack and an SSH server, along with an up to date version of Drush. It is based on [Debian Jessie](https://wiki.debian.org/DebianJessie).
+	eval $(docker-machine env default)
+	cd docker-drupal/
+	docker build -t pvhee/docker-drupal .
+	docker run -p 8090:80 -p 8022:22 pvhee/drupal
+
+Find out on which ports this is running
+
+	docker-machine ip default
+
+
 
 Summary
 -------
+
+Quick and easy to use Docker container for your *local Drupal development*. It contains a LAMP stack and an SSH server, along with an up to date version of Drush. It is based on [Debian Jessie](https://wiki.debian.org/DebianJessie).
+
 
 This image contains:
 

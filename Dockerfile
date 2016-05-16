@@ -1,5 +1,4 @@
 FROM debian:jessie
-MAINTAINER Wouter Admiraal <wad@wadmiraal.net>
 ENV DEBIAN_FRONTEND noninteractive
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh
 
@@ -128,6 +127,7 @@ RUN /etc/init.d/mysql start && \
 		--account-pass=admin
 RUN /etc/init.d/mysql start && \
 	cd /var/www && \
+	drush dl admin_toolbar && \
 	drupal module:install admin_toolbar --latest && \
 	drupal module:install simpletest
 
