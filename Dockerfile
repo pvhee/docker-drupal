@@ -125,7 +125,7 @@ RUN /etc/init.d/mysql start && \
 	drupal module:install admin_toolbar && \
 	drupal module:install rabbitmq rabbitmq_example && \
 	drupal module:install search_api search_api_solr && \
-	drupal module:install devel && \
+	drupal module:install devel devel_kint && \
 	drupal module:install composer_manager && \
 	drupal module:install simpletest
 
